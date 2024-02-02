@@ -144,7 +144,7 @@ void CheckAccountActivation(void)
     ss << "&username=" << config.username;
     ss << "&server=" << config.comm.server_num;
 
-    if (SendHttpsRequest(hParent, domain, resource, ss.str(), response))
+    if (SendHttpsRequest(hParent, resource, "", ss.str(), response))
     {
         string dStr(response.begin(), response.end());
         char* text = const_cast<char *>(dStr.c_str());
@@ -167,7 +167,11 @@ void CheckAccountActivation(void)
                 {
                     // request re-send of verification email.
                     LoadString(hInst, IDS_RESENDAPI, resource, sizeof(resource));
-                    SendHttpsRequest(hParent, domain, resource, ss.str(), response);
+                    SendHttpsRequest(hParent, resource, "", ss.str(), response);
+
+                    string dStr(response.begin(), response.end());
+                    char* text = const_cast<char*>(dStr.c_str());
+                    debug((text));
                 }
             }
             break;
@@ -225,11 +229,7 @@ void EnterGame(void)
 */
 bool UseRetailLoginSystem()
 {
-#ifdef M59_RETAIL
     return true;
-#else
-    return false;
-#endif
 }
 
 /****************************************************************************/

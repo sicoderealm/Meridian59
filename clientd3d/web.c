@@ -68,7 +68,8 @@ bool SendHttpsRequest(HWND hDlg, const string& domain, const string& resource, c
         // Failed to send http request, show client error popup message.
         std::stringstream os;
         os << GetLastError();
-        ClientError(hInst, hDlg, IDS_CANTSIGNUP, os.str().c_str());
+        auto error = os.str().c_str();
+        ClientError(hInst, hDlg, IDS_CANTSIGNUP, error);
     }
 
     ::InternetCloseHandle(httpRequest);

@@ -155,7 +155,7 @@ INT_PTR CALLBACK SignUpDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
 
             char errorStr[256];
 
-            if (SendHttpsRequest(hDlg, domain, resource, ss.str(), response))
+            if (SendHttpsRequest(hDlg, resource, "", ss.str(), response))
             {
                 string dStr(response.begin(), response.end());
                 char* text = const_cast<char *>(dStr.c_str());
@@ -173,7 +173,7 @@ INT_PTR CALLBACK SignUpDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
                     // web request returned invalid numerical response (server side error)
                     su->SetWebApiResponse(1);
                     su->UpdateInputs(hDlg, TRUE);
-                }
+                } 
 
                 if ((SignUpWebResponse::SUCCESS == su->GetWebApiResponse()))
                 {
@@ -248,7 +248,8 @@ INT_PTR CALLBACK SignUpDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
             {
                 // Failed during web api call (potential client network issues).
                 LoadString(hInst, IDS_SIGNUPUNKNOWNERROR, errorStr, sizeof(errorStr));
-                ClientError(hInst, hDlg, IDS_SIGNUPFAILED, ss.str().c_str());
+                auto error = ss.str().c_str();
+                ClientError(hInst, hDlg, IDS_SIGNUPFAILED, error);
 
                 su->UpdateInputs(hDlg, TRUE);
             }
