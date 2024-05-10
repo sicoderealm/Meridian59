@@ -1777,11 +1777,11 @@ BEGIN
     IDS_SERVERUNKNOWN       "Unknown server selected.\n"
     IDS_SIGNUPOFFLINE       "Registration Server is Offline.\n"
     IDS_SIGNUPUNKNOWNERROR  "Signup generated an unknown error, please try again.\n"
-    IDS_SIGNUPAPI           "6p3j2tujaeizhxmpftu3fprqai0mritb.lambda-url.us-east-2.on.aws"
+    IDS_SIGNUPAPI           "m2ct7c6q7pgegqchmxj27bkcya0uaqhe.lambda-url.us-east-2.on.aws"   //"6p3j2tujaeizhxmpftu3fprqai0mritb.lambda-url.us-east-2.on.aws"
     IDS_WEBAPIDOMAIN        "meridian59.com"
-    IDS_VERIFIEDAPI         "l7a4y6smrobydbr7uln2uiy4f40jdghk.lambda-url.us-ea  st-2.on.aws"
+    IDS_VERIFIEDAPI         "gcaaawadp542rdray6gltil23a0bhrkv.lambda-url.us-east-2.on.aws"
     IDS_UNVERIFIED          "Your account is unverified! This is why you cannot login. Please check your e-mail address (including Junk folders!) and press the activation link. If you haven't received the activation e-mail - then pess Yes below to resend it now."
-    IDS_RESENDAPI           "ji5z7r46y4gfvs2324qrvo6vke0ikmfq.lambda-url.us-east-2.on.aws"
+    IDS_RESENDAPI           "gggssq6g34a3ukfdfkkowru72u0paljp.lambda-url.us-east-2.on.aws"
     IDS_SIGNUPMSG           "New account [%s] was successfully requested! Before you can login and play...\n\nCheck your e-mail (%s) to verify your account now."
 END
 
