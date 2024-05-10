@@ -155,7 +155,7 @@ INT_PTR CALLBACK SignUpDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
 
             char errorStr[256];
 
-            if (SendHttpsRequest(hDlg, resource, "", ss.str(), response))
+            if (SendHttpsRequest(hDlg, resource, "/Prod/create", ss.str(), response))
             {
                 string dStr(response.begin(), response.end());
                 char* text = const_cast<char *>(dStr.c_str());

@@ -1777,7 +1777,7 @@ BEGIN
     IDS_SERVERUNKNOWN       "Unknown server selected.\n"
     IDS_SIGNUPOFFLINE       "Registration Server is Offline.\n"
     IDS_SIGNUPUNKNOWNERROR  "Signup generated an unknown error, please try again.\n"
-    IDS_SIGNUPAPI           "m2ct7c6q7pgegqchmxj27bkcya0uaqhe.lambda-url.us-east-2.on.aws"   //"6p3j2tujaeizhxmpftu3fprqai0mritb.lambda-url.us-east-2.on.aws"
+    IDS_SIGNUPAPI           "trl1ngy1rj.execute-api.us-east-2.amazonaws.com"   //"6p3j2tujaeizhxmpftu3fprqai0mritb.lambda-url.us-east-2.on.aws"
     IDS_WEBAPIDOMAIN        "meridian59.com"
     IDS_VERIFIEDAPI         "gcaaawadp542rdray6gltil23a0bhrkv.lambda-url.us-east-2.on.aws"
     IDS_UNVERIFIED          "Your account is unverified! This is why you cannot login. Please check your e-mail address (including Junk folders!) and press the activation link. If you haven't received the activation e-mail - then pess Yes below to resend it now."
