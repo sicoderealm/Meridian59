@@ -144,7 +144,7 @@ void CheckAccountActivation(void)
     ss << "&username=" << config.username;
     ss << "&server=" << config.comm.server_num;
 
-    if (SendHttpsRequest(hParent, resource, "", ss.str(), response))
+    if (SendHttpsRequest(hParent, domain, resource, ss.str(), response))
     {
         string dStr(response.begin(), response.end());
         char* text = const_cast<char *>(dStr.c_str());
@@ -165,9 +165,14 @@ void CheckAccountActivation(void)
             {
                 if (AreYouSure(hInst, hMain, YES_BUTTON, IDS_UNVERIFIED))
                 {
-                    // request re-send of verification email.
+                    // make web api request.
+                    char domain[256];
+                    LoadString(hInst, IDS_WEBAPIDOMAIN, domain, sizeof(domain));
+                    char resource[256];
                     LoadString(hInst, IDS_RESENDAPI, resource, sizeof(resource));
-                    SendHttpsRequest(hParent, resource, "", ss.str(), response);
+
+                    // request re-send of verification email.
+                    SendHttpsRequest(hParent, domain, resource, ss.str(), response);
 
                     string dStr(response.begin(), response.end());
                     char* text = const_cast<char*>(dStr.c_str());
