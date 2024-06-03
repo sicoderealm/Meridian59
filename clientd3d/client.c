@@ -348,6 +348,12 @@ int PASCAL WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdPa
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
+
+			if (state == STATE_OFFLINE || state == STATE_LOGIN)
+			{
+				
+			}
+			Sleep(10);
 		}
 	}
 
