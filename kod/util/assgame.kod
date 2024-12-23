@@ -71,10 +71,10 @@ resources:
       "%q has won the challenge of the dark blades.\n\n"
       "-- Roq, the Dark Blade"
 
-   AssGame_not_viable = "Subject: insufficent blades.\n"
+   AssGame_not_viable = "Subject: insufficent combatants.\n"
       "The Assassin's Game is not viable at this time.  The game will "
-      "start anew soon enough. Feast then retrieve your blade once more."
-      "\n\n-- Roq, the Dark Blade"
+      "start anew soon enough. Feast on my gift then retrieve your "
+      "blade once more.\n\n-- Roq, the Dark Blade"
    
    Assgame_go_wav = assassin.wav
    AssGame_roq = "Roq, the Dark Blade"
@@ -1141,7 +1141,7 @@ messages:
       {
          Send(i,@ReceiveNestedMail,#nest_list=[4,AssGame_not_viable],
             #from=assgame_roq,#dest_list=[i]);
-         poGift = Create(&InkyCap,#number=3);
+         poGift = Create(&InkyCap,#number=2);
          Send(target,@NewHold,#what=poGift);
       }
 
