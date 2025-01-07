@@ -122,7 +122,7 @@ messages:
       oObj2=Create(&NeruditeArrow,#number=50);
       Send(Send(SYS,@GetLibrary),@AddToMobLib,#mob=self,
            #triggers=[Send(oObj2,@GetName)],
-           #action=[LIBACT_CONDITIONAL,oObj2,50,KocatanBowMaker_NeruditeArrow_sale]);
+           #action=[LIBACT_CONDITIONAL,oObj2,125,KocatanBowMaker_NeruditeArrow_sale]);
 
       return;
    }
