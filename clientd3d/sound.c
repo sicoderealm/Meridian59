@@ -257,12 +257,16 @@ UINT PlayWaveFile(HWND hwnd, char *fname, int volume, BYTE flags, int src_row, i
 		AIL_set_sample_user_data( SampleHandle[i], SOUND_USER_MAXVOL, vol );
 	}
 
-	// Finally, activate sample
-	AIL_start_sample( SampleHandle[i] );
+	// Set user data and register callback before starting sample.
+	// MSS may invoke the callback immediately for very short sounds, so we need
+	// to ensure the user data is set before AIL_start_sample is called.
 	AIL_set_sample_user_data( SampleHandle[i], SOUND_USER_ADDRESS, (S32) pSample );
 
 	//	register callback to free memory allocated
 	AIL_register_EOS_callback( SampleHandle[i], SoundDoneCallback );
+
+	// Finally, activate sample
+	AIL_start_sample( SampleHandle[i] );
 
 	return 0;
 #else
