@@ -2132,6 +2132,7 @@ void D3DGeometryBuildNew(const WorldRenderParams &worldRenderParams, const World
    if (config.bDynamicLighting)
    {
       D3DCacheSystemReset(cacheSystem.worldCacheSystemStatic);
+      D3DCacheSystemReset(cacheSystem.lMapCacheSystemStatic);
       D3DRenderPoolReset(pools.lMapPoolStatic, &D3DMaterialLMapDynamicPool);
 
       for (count = 0; count < room.num_nodes; count++)
