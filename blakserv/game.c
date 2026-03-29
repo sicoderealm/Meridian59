@@ -184,6 +184,8 @@ void GameProcessSessionBuffer(session_node *s)
       if (msg.crc16 != security && !s->seeds_hacked)
       {
 			s->seeds_hacked = true;
+			lprintf("GPSB: CRC fail msg_type=%d account=%i crc=%u expected=%u\n",
+			        (unsigned char)msg.data[0], s->account->account_id, msg.crc16, security);
 			if (ConfigBool(SECURITY_LOG_SPOOFS))
 			{
 				lprintf("GameProcessSessionBuffer found invalid security account %i\n",
@@ -203,7 +205,8 @@ void GameProcessSessionBuffer(session_node *s)
 
       if (msg.seqno != GetEpoch()) /* old sequence ok, just ignore */
       {
-	 /* dprintf("Game got bad epoch from session %i\n",s->session_id); */
+         lprintf("GPSB: epoch skip msg_type=%d account=%i seqno=%d epoch=%d\n",
+                 (unsigned char)msg.data[0], s->account->account_id, msg.seqno, GetEpoch());
 	 continue;
       }
       
@@ -406,8 +409,6 @@ void GameProtocolParse(session_node *s,client_msg *msg)
 {
    user_node *u;
    int object_id;
-   char *ptr;
-
    char password[MAX_LOGIN_PASSWORD+1],new_password[MAX_LOGIN_PASSWORD+1];
    int len,index;
 
@@ -434,28 +435,6 @@ void GameProtocolParse(session_node *s,client_msg *msg)
       GameEchoPing(s);
       break;
 
-   case BP_AD_SELECTED :
-      /* they clicked on an ad; log it */
-      switch (msg->data[1])
-      {
-      case 1:
-	 ptr = LockConfigStr(ADVERTISE_URL1);
-	 lprintf("GameProtocolParse found account %i visited ad 1, %s\n",s->account->account_id,
-		 ptr);
-	 UnlockConfigStr();
-	 break;
-      case 2:
-	 ptr = LockConfigStr(ADVERTISE_URL2);
-	 lprintf("GameProtocolParse found account %i visited ad 2, %s\n",s->account->account_id,
-		 ptr);
-	 UnlockConfigStr();
-	 break;
-      default :
-	 eprintf("GameProtocolParse found account %i visited unknown ad %i\n",
-		 s->account->account_id,msg->data[1]);
-      }
-      break;
-         
    case BP_USE_CHARACTER :
       if (s->game->object_id == INVALID_OBJECT)
       {
@@ -546,7 +525,7 @@ void GameProtocolParse(session_node *s,client_msg *msg)
 
    default :
       ClientToBlakodUser(s,msg->len,msg->data);
-      
+
       break;
    }
 }
@@ -601,7 +580,7 @@ void GameSendEachUserChoice(user_node *u)
 {
    val_type name_val,num_val;
    resource_node *r;
-   
+
    AddIntToPacket(u->object_id);
 
    name_val.int_val = SendTopLevelBlakodMessage(u->object_id,USER_NAME_MSG,0,NULL);
@@ -638,11 +617,11 @@ void GameSendSystemEnter(session_node *s)
 
    session_id_const.v.tag = TAG_SESSION;
    session_id_const.v.data = s->session_id;
-   
+
    p.type = CONSTANT;
    p.value = session_id_const.int_val;
    p.name_id = SESSION_ID_PARM;
-   
+
    SendTopLevelBlakodMessage(GetSystemObjectID(),SYSTEM_ENTER_GAME_MSG,1,&p);
 
 }
