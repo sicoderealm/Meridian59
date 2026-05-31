@@ -126,4 +126,3 @@ def lambda_handler(event, context):
         logger.info("exception")
         logger.info(str(e))
         return do_failure()
-
