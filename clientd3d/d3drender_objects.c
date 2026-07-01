@@ -94,28 +94,30 @@ static void updateRenderChunkAnimationIntensity(d3d_render_chunk_new* pChunk)
 
 // Implementations
 
-// Per-frame stack index for each object, keyed by object id. Objects sharing a tile get successive
-// bins so their z-bias bands don't overlap (see DEPTH_BIN_STRIDE). Rebuilt every frame by
-// D3DRenderObjects before the draw passes read it; lives here rather than on room_contents_node so the
-// shared object struct stays free of hardware-renderer scratch.
-static std::unordered_map<int, int> objectDepthBins;
+// Object id -> its stack index among the objects sharing its location, for the current frame.
+// Co-located objects get successive indices (0, 1, 2, ...) so their z-bias bands can be shifted
+// apart (index * ZBIAS_STACK_STRIDE) instead of overlapping and interleaving.
+static std::unordered_map<int, int> objectStackIndices;
 
-// Stack index for an object's tile band, or 0 if it wasn't assigned a bin this frame.
-static int D3DRenderObjectDepthBin(int objectId)
+// Stack index assigned this frame, or 0 for an object that shares its location with no other
+// (and so needs no shift).
+static int D3DRenderObjectStackIndex(int objectId)
 {
-	auto it = objectDepthBins.find(objectId);
-	return (it == objectDepthBins.end()) ? 0 : it->second;
+	auto it = objectStackIndices.find(objectId);
+	return (it == objectStackIndices.end()) ? 0 : it->second;
 }
 
-// Rebuild objectDepthBins for the current frame. Objects sharing a tile (same motion x/y) would
-// otherwise draw with identical z-bias bands, causing their sprites and overlays to interleave (one
-// object's overlay appearing over a different object's sprite). Sorting by object id keeps the
-// front/back assignment stable frame-to-frame so it doesn't flicker.
-static void D3DRenderBuildObjectDepthBins(const GameObjectDataParams& gameObjectDataParams)
+// Assign stack indices for the current frame. Objects at the same location would otherwise draw in
+// identical z-bias bands and interleave (one object's overlay appearing over another's sprite). The
+// main-sprite and overlay passes iterate in different orders, so indices are assigned once here and
+// both passes read them. Ordering by object id keeps the assignment stable frame-to-frame, so
+// co-located objects don't flicker past each other.
+static void D3DRenderAssignObjectStackIndices(const GameObjectDataParams& gameObjectDataParams)
 {
+	objectStackIndices.clear();
+
 	const auto* localPlayer = GetPlayerInfo();
-	objectDepthBins.clear();
-	std::vector<room_contents_node*> stackNodes;
+	std::vector<room_contents_node*> nodes;
 	std::unordered_set<int> seenIds;
 	for (long i = 0; i < gameObjectDataParams.numItems; i++)
 	{
@@ -125,18 +127,20 @@ static void D3DRenderBuildObjectDepthBins(const GameObjectDataParams& gameObject
 		if (node == NULL || node->obj.id == localPlayer->id)
 			continue;
 		if (seenIds.insert(node->obj.id).second)
-			stackNodes.push_back(node);
+			nodes.push_back(node);
 	}
-	std::sort(stackNodes.begin(), stackNodes.end(),
+
+	std::sort(nodes.begin(), nodes.end(),
 		[](const room_contents_node* a, const room_contents_node* b) { return a->obj.id < b->obj.id; });
-	// Each object's bin is the number of objects already placed at its location, so co-located
-	// objects get successive bins (0, 1, 2, ...). Combine the object's x and y position into a
-	// single int64 to use as the per-location map key.
-	std::unordered_map<int64, int> tileCount;
-	for (room_contents_node* node : stackNodes)
+
+	// Pack x and y into one key so objects at the same location share a counter.
+	std::unordered_map<int64, int> countAtLocation;
+	for (room_contents_node* node : nodes)
 	{
-		int64 key = ((int64)node->motion.x << 32) | (int)(node->motion.y & 0xFFFFFFFF);
-		objectDepthBins[node->obj.id] = tileCount[key]++;
+		int64 location = ((int64)node->motion.x << 32) | (int)(node->motion.y & 0xFFFFFFFF);
+		int stackIndex = countAtLocation[location];
+		objectStackIndices[node->obj.id] = stackIndex;
+		countAtLocation[location] = stackIndex + 1;
 	}
 }
 
@@ -160,9 +164,7 @@ long D3DRenderObjects(
 	const auto room = objectsRenderParams.room;
 	const auto params = objectsRenderParams.params;
 
-	// The main-sprite and overlay passes run as separate loops in different orders, so compute the
-	// per-tile stack bins once up front for both passes to read.
-	D3DRenderBuildObjectDepthBins(gameObjectDataParams);
+	D3DRenderAssignObjectStackIndices(gameObjectDataParams);
 
 	if (config.draw_names)
 	{
@@ -1017,9 +1019,9 @@ void D3DRenderOverlaysDraw(
 					pChunk->numPrimitives = pChunk->numVertices - 2;
 					pChunk->xLat0 = xLat0;
 					pChunk->xLat1 = xLat1;
-					// Apply the same per-object band shift used for the main sprite so this overlay stays
-					// grouped with its own object and doesn't interleave with a co-located one.
-					pChunk->zBias = zBias + (BYTE)(D3DRenderObjectDepthBin(pRNode->obj.id) * DEPTH_BIN_STRIDE);
+					// Shift by the same amount as the object's main sprite so this overlay stays grouped
+					// with its own object and doesn't interleave with a co-located one.
+					pChunk->zBias = zBias + (BYTE)(D3DRenderObjectStackIndex(pRNode->obj.id) * ZBIAS_STACK_STRIDE);
 
 					zBias++;
 
@@ -1620,10 +1622,9 @@ void D3DRenderObjectsDraw(
 			? ZBIAS_BASE : ZBIAS_DEFAULT;
 
 
-		// Shift this object's whole z-bias band clear of any other object sharing its tile, so their
-		// main sprites and overlays never interleave. The bin is assigned once per frame; the overlay
-		// pass applies the identical shift so an object's layers stay grouped with its main sprite.
-		pChunk->zBias += (BYTE)(D3DRenderObjectDepthBin(pRNode->obj.id) * DEPTH_BIN_STRIDE);
+		// Shift this object's whole z-bias band clear of any other object sharing its location, so
+		// their sprites and overlays never interleave. The overlay pass applies the identical shift.
+		pChunk->zBias += (BYTE)(D3DRenderObjectStackIndex(pRNode->obj.id) * ZBIAS_STACK_STRIDE);
 
 		lastDistance = 0;
 
