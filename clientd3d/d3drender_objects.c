@@ -133,7 +133,9 @@ static void D3DRenderAssignObjectStackIndices(const GameObjectDataParams& gameOb
 	std::sort(nodes.begin(), nodes.end(),
 		[](const room_contents_node* a, const room_contents_node* b) { return a->obj.id < b->obj.id; });
 
-	// Pack x and y into one key so objects at the same location share a counter.
+	// Each object's bin is the number of objects already placed at its location, so co-located
+	// objects get successive bins (0, 1, 2, ...). Combine the object's x and y position into a
+	// single int64 to use as the per-location map key.
 	std::unordered_map<int64, int> countAtLocation;
 	for (room_contents_node* node : nodes)
 	{
