@@ -2507,12 +2507,12 @@ bool D3DObjectLightingCalc(
 	// OF_FLASHING (used e.g. for detect-invisible reveal) must pulse regardless
 	// of daylight, so only OF_FLICKERING is daylight-gated.
 	int effectiveLightAdjust = pRNode->obj.lightAdjust;
-	if (light > 127 && (pRNode->obj.flags & OF_FLICKERING))
+	if (light > 127 && ObjectIsFlickering(pRNode->obj.flags))
 	{
 		effectiveLightAdjust = 0;  // Disable visual flicker during daytime
 	}
 
-	if (pRNode->obj.flags & (OF_FLICKERING | OF_FLASHING))
+	if (ObjectHasLightEffect(pRNode->obj.flags))
 		light = GetLightPaletteIndex(intDistance, light, FINENESS, effectiveLightAdjust);
 	else
 		light = GetLightPaletteIndex(intDistance, light, FINENESS, 0);
@@ -2531,7 +2531,7 @@ bool D3DObjectLightingCalc(
 		bgra->r = std::min((float)COLOR_AMBIENT, bgra->r + (lastDistance * pDLight->color.r / COLOR_AMBIENT));
 		
 		// Apply flickering/flashing adjustment to the combined lighting (base + dynamic)
-		if (pRNode->obj.flags & (OF_FLICKERING | OF_FLASHING))
+		if (ObjectHasLightEffect(pRNode->obj.flags))
 		{
 			float adjustment = (float)pRNode->obj.lightAdjust / GetFlickerLevel();
 			bgra->b = std::min((float)COLOR_AMBIENT, bgra->b + (bgra->b * adjustment));
