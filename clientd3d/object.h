@@ -109,8 +109,8 @@ typedef struct {
 } room_contents_node;
 
 bool ObjectIsBouncing(int flags);
-bool ObjectIsFlickering(int flags);
-bool ObjectIsFlashing(int flags);
+bool ObjectHasFlickeringLight(int flags);
+bool ObjectHasFlashingLight(int flags);
 bool ObjectHasLightEffect(int flags);
 
 M59EXPORT bool CompareIdObject(void *idnum, void *obj);

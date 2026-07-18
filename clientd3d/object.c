@@ -85,19 +85,19 @@ bool ObjectIsBouncing(int flags)
    return OF_BOUNCING == (OF_BOUNCING & flags);
 }
 /*****************************************************************************/
-bool ObjectIsFlickering(int flags)
+bool ObjectHasFlickeringLight(int flags)
 {
    return 0 != (flags & OF_FLICKERING) && !ObjectIsBouncing(flags);
 }
 /*****************************************************************************/
-bool ObjectIsFlashing(int flags)
+bool ObjectHasFlashingLight(int flags)
 {
    return 0 != (flags & OF_FLASHING) && !ObjectIsBouncing(flags);
 }
 /*****************************************************************************/
 bool ObjectHasLightEffect(int flags)
 {
-   return ObjectIsFlickering(flags) || ObjectIsFlashing(flags);
+   return ObjectHasFlickeringLight(flags) || ObjectHasFlashingLight(flags);
 }
 /*****************************************************************************/
 /*
