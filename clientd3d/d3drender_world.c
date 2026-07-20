@@ -166,6 +166,15 @@ void D3DRenderWorldLighting(const WorldRenderParams &worldRenderParams,
 
       D3DRender_SetAlphaTestState(TRUE, alpha_test_threshold, D3DCMP_GREATEREQUAL);
       D3DRender_SetAlphaBlendState(TRUE, D3DBLEND_ONE, D3DBLEND_ONE);
+
+      // Each light draws its own pass, so adding them made a surface's brightness scale with
+      // the number of lights reaching it and a crowd of light-emitting monsters wash the room
+      // to white. Taking the maximum instead leaves a surface as bright as the strongest light
+      // on it however many others overlap, which bounds the result without dimming a lone
+      // light. The maximum is per colour channel, so lights of different colours still tint a
+      // surface together; a light loses only where another is brighter in every channel.
+      IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_BLENDOP, D3DBLENDOP_MAX);
+
       IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_FOGENABLE, FALSE);
 
       IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_ZWRITEENABLE, TRUE);
@@ -188,6 +197,7 @@ void D3DRenderWorldLighting(const WorldRenderParams &worldRenderParams,
 
       // Restore states for subsequent rendering
       IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_ZWRITEENABLE, TRUE);  // Restore depth writing
+      IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_BLENDOP, D3DBLENDOP_ADD);
       if (isFogEnabled())
          IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_FOGENABLE, TRUE);  // Restore fog state
    }

@@ -381,15 +381,16 @@ void D3DLMapsStaticGet(room_type* room, const LightCacheUpdateParams& params)
          if (isDynamic)
             continue;
 
-         if (ShouldSkipLight(lightCacheDynamic->numLights, pRNode->obj.dLighting.flags, pRNode->obj.dLighting.color,
-                             pRNode->obj.dLighting.intensity))
-            continue;
-
          bool isFlickering = (pRNode->obj.flags & (OF_FLICKERING | OF_FLASHING)) != 0;
 
          // Select target cache: flickering lights go to dynamic cache, static lights to main cache
          d_light_cache* targetCache = isFlickering ? lightCacheDynamic : lightCache;
          const char* debugLabel = isFlickering ? "Flickering" : "Static";
+
+         // Each cache spends its own budget
+         if (ShouldSkipLight(targetCache->numLights, pRNode->obj.dLighting.flags, pRNode->obj.dLighting.color,
+                             pRNode->obj.dLighting.intensity))
+            continue;
 
          // Non-flickering lights need structural change detection
          if (!isFlickering)
