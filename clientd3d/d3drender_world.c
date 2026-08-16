@@ -51,6 +51,32 @@ void D3DRenderSemiTransparentWalls(const WorldRenderParams &worldRenderParams);
 // Implementations
 
 /**
+ * Returns the texture variant pDib must be uploaded as to be drawn on pSideDef, for the
+ * effect field of a render packet. Only a sidedef with the "Transparent" flag treats
+ * palette index 254 as a hole; on every other sidedef it is an ordinary colour, as the
+ * software renderer draws it.
+ *
+ * A hole is a property of the wall rather than of the face it is seen from, so the flag
+ * counts on either face as long as both carry the same bitmap. Rooms often tick the box
+ * only on the face pointing at open ground: the far face of the same wall is still in
+ * view along a corner silhouette, and reading the flag from that face alone would paint
+ * its cutout texels their true cyan for the pixel or two of it that shows.
+ */
+static int SidedefTextureVariant(const WallData *pWall, const Sidedef *pSideDef, PDIB pDib)
+{
+   if (pSideDef->flags & WF_TRANSPARENT)
+      return 0;
+
+   const Sidedef *pOther = (pSideDef == pWall->pos_sidedef) ? pWall->neg_sidedef : pWall->pos_sidedef;
+
+   if (pOther && (pOther->flags & WF_TRANSPARENT) &&
+       ((pOther->normal_bmap == pDib) || (pOther->above_bmap == pDib) || (pOther->below_bmap == pDib)))
+      return 0;
+
+   return D3DRENDER_TEXTURE_SOLID;
+}
+
+/**
  * The main entry point for rendering the 3d game world.
  * Returns the total time taken to render the world.
  */
@@ -1028,7 +1054,7 @@ void D3DRenderPacketWallAdd(WallData *pWall, d3d_render_pool_new *pPool, unsigne
 
    D3DRenderWallExtract(pWall, pDib, &flags, xyz, st, bgra, type, side);
 
-   pPacket = D3DRenderPacketFindMatch(pPool, NULL, pDib, 0, 0, 0);
+   pPacket = D3DRenderPacketFindMatch(pPool, NULL, pDib, 0, 0, SidedefTextureVariant(pWall, pSideDef, pDib));
    if (NULL == pPacket)
       return;
    pChunk = D3DRenderChunkNew(pPacket);
@@ -1190,7 +1216,7 @@ void D3DRenderPacketWallMaskAdd(WallData *pWall, d3d_render_pool_new *pPool, uns
 
    D3DRenderWallExtract(pWall, pDib, &flags, xyz, st, bgra, type, side);
 
-   pPacket = D3DRenderPacketFindMatch(pPool, NULL, pDib, 0, 0, 0);
+   pPacket = D3DRenderPacketFindMatch(pPool, NULL, pDib, 0, 0, SidedefTextureVariant(pWall, pSideDef, pDib));
    if (NULL == pPacket)
       return;
    pChunk = D3DRenderChunkNew(pPacket);
@@ -2065,7 +2091,7 @@ void D3DRenderLMapPostWallAdd(WallData *pWall, d3d_render_pool_new *pPool, unsig
          // The normal is still calculated above because it's used below to determine
          // the wall's major axis for texture coordinate calculation.
 
-         pPacket = D3DRenderPacketFindMatch(pPool, NULL, pDib, 0, 0, 0);
+         pPacket = D3DRenderPacketFindMatch(pPool, NULL, pDib, 0, 0, SidedefTextureVariant(pWall, pSideDef, pDib));
          if (NULL == pPacket)
             return;
          pChunk = D3DRenderChunkNew(pPacket);
