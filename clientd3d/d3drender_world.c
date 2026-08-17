@@ -51,29 +51,35 @@ void D3DRenderSemiTransparentWalls(const WorldRenderParams &worldRenderParams);
 // Implementations
 
 /**
- * Returns the texture variant pDib must be uploaded as to be drawn on pSideDef, for the
- * effect field of a render packet. Only a sidedef with the "Transparent" flag treats
- * palette index 254 as a hole; on every other sidedef it is an ordinary colour, as the
- * software renderer draws it.
+ * Whether palette index 254 is a hole where pDib is drawn on pSideDef, rather than the
+ * ordinary colour the software renderer would give it.
  *
- * A hole is a property of the wall rather than of the face it is seen from, so the flag
- * counts on either face as long as both carry the same bitmap. Rooms often tick the box
- * only on the face pointing at open ground: the far face of the same wall is still in
- * view along a corner silhouette, and reading the flag from that face alone would paint
- * its cutout texels their true cyan for the pixel or two of it that shows.
+ * A hole is a property of the wall rather than of the face it is seen from, so the
+ * "Transparent" flag counts on either face as long as both carry the same bitmap. Rooms
+ * often tick the box only on the face pointing at open ground: the far face of the same
+ * wall is still in view along a corner silhouette, and reading the flag from that face
+ * alone would paint its cutout texels their true cyan for the pixel or two of it that
+ * shows.
  */
-static int SidedefTextureVariant(const WallData *pWall, const Sidedef *pSideDef, PDIB pDib)
+static bool SidedefDrawsCutout(const WallData *pWall, const Sidedef *pSideDef, PDIB pDib)
 {
    if (pSideDef->flags & WF_TRANSPARENT)
-      return 0;
+      return true;
 
    const Sidedef *pOther = (pSideDef == pWall->pos_sidedef) ? pWall->neg_sidedef : pWall->pos_sidedef;
 
-   if (pOther && (pOther->flags & WF_TRANSPARENT) &&
-       ((pOther->normal_bmap == pDib) || (pOther->above_bmap == pDib) || (pOther->below_bmap == pDib)))
-      return 0;
+   return pOther && (pOther->flags & WF_TRANSPARENT) &&
+          ((pOther->normal_bmap == pDib) || (pOther->above_bmap == pDib) ||
+           (pOther->below_bmap == pDib));
+}
 
-   return D3DRENDER_TEXTURE_SOLID;
+/**
+ * Returns the texture variant pDib must be uploaded as to be drawn on pSideDef, for the
+ * effect field of a render packet.
+ */
+static int SidedefTextureVariant(const WallData *pWall, const Sidedef *pSideDef, PDIB pDib)
+{
+   return SidedefDrawsCutout(pWall, pSideDef, pDib) ? 0 : D3DRENDER_TEXTURE_SOLID;
 }
 
 /**
@@ -2758,7 +2764,11 @@ int D3DRenderWallExtract(WallData *pWall, PDIB pDib, unsigned int *flags, custom
    switch (type)
    {
    case D3DRENDER_WALL_NORMAL:
-      if (pSideDef->flags & WF_NO_VTILE)
+      // Not tiling vertically leaves the wall above the texture to be filled by whatever
+      // lies behind it, which the clamp below only achieves where the texture's cutout
+      // texels are holes. Drawn solid it would smear the texture's edge row up the wall
+      // instead, so fall back to tiling, which is what the software renderer does.
+      if ((pSideDef->flags & WF_NO_VTILE) && SidedefDrawsCutout(pWall, pSideDef, pDib))
          *flags |= D3DRENDER_NO_VTILE;
       if (pSideDef->flags & WF_NO_HTILE)
          *flags |= D3DRENDER_NO_HTILE;
