@@ -29,8 +29,7 @@ static void D3DRenderObjectsDraw(
 	const GameObjectDataParams& gameObjectDataParams,
 	const PlayerViewParams& playerViewParams,
 	const LightAndTextureParams& lightAndTextureParams,
-	int flags,
-	bool glowPass);
+	int flags);
 
 static void D3DRenderOverlaysDraw(
 	const ObjectsRenderParams& objectsRenderParams,
@@ -38,8 +37,7 @@ static void D3DRenderOverlaysDraw(
 	const PlayerViewParams& playerViewParams,
 	const LightAndTextureParams& lightAndTextureParams,
 	bool underlays,
-	int flags,
-	bool glowPass);
+	int flags);
 
 static int D3DRenderProjectilesDraw(const ObjectsRenderParams& objectsRenderParams);
 
@@ -121,38 +119,36 @@ static void updateRenderChunkAnimationIntensity(d3d_render_chunk_new* pChunk)
 // Implementations
 
 /**
-* True when an object carries a steady dynamic light, as the glow enchantment does.
-* Flickering sources (torches) waver and are excluded.
+* Shows the color of an object's own steady light (the glow enchantment) on its sprite. Vertex
+* color multiplies the texture, so in a bright sector it is already at full scale and has no
+* headroom left to show the light; the chunk is marked to be drawn with a doubled texture stage,
+* which makes room for the added light at the cost of halving the color written here.
+* Flickering lights (torches) waver rather than glow, and objects drawn by the invisibility
+* material ignore vertex color, so both are left alone.
 */
-static bool ObjectEmitsSteadyLight(const room_contents_node* pRNode)
+static void ApplySelfLightGlow(const room_contents_node* pRNode, custom_bgra* bgra,
+	d3d_render_chunk_new* pChunk)
 {
 	const WORD lightFlags = pRNode->obj.dLighting.flags;
 
-	return (lightFlags & (LIGHT_FLAG_ON | LIGHT_FLAG_DYNAMIC)) == (LIGHT_FLAG_ON | LIGHT_FLAG_DYNAMIC)
-		&& !(lightFlags & LIGHT_FLAG_WAVERING);
-}
+	if ((lightFlags & (LIGHT_FLAG_ON | LIGHT_FLAG_DYNAMIC)) != (LIGHT_FLAG_ON | LIGHT_FLAG_DYNAMIC)
+		|| (lightFlags & LIGHT_FLAG_WAVERING)
+		|| IsInvisibleEffect(pRNode->obj.flags))
+		return;
 
-/**
-* Vertex color for the additive glow pass, from the object's own 5-5-5 light color. Alpha is
-* opaque so the sprite's alpha test still masks the transparent texels.
-*/
-static custom_bgra GlowPassColor(const room_contents_node* pRNode)
-{
-	// Fraction of the emitted light color added over the sprite. Enough to read in daylight,
-	// low enough that the sprite keeps its own colors.
-	static const float GLOW_PASS_STRENGTH = 0.35f;
+	// Fraction of the light's color added over the sprite. Enough to read in daylight, low
+	// enough that the sprite keeps its own colors.
+	static const float GLOW_STRENGTH = 0.35f;
 	static const float FIVE_BIT_TO_COLOR = COLOR_MAX / 31.0f;
 
 	const WORD lightColor = pRNode->obj.dLighting.color;
-	const float scale = FIVE_BIT_TO_COLOR * GLOW_PASS_STRENGTH;
+	const float scale = FIVE_BIT_TO_COLOR * GLOW_STRENGTH;
 
-	custom_bgra bgra;
-	bgra.r = static_cast<unsigned char>(((lightColor >> 10) & 0x1F) * scale);
-	bgra.g = static_cast<unsigned char>(((lightColor >> 5) & 0x1F) * scale);
-	bgra.b = static_cast<unsigned char>((lightColor & 0x1F) * scale);
-	bgra.a = 255;
+	bgra->r = static_cast<unsigned char>((bgra->r + ((lightColor >> 10) & 0x1F) * scale) / 2.0f);
+	bgra->g = static_cast<unsigned char>((bgra->g + ((lightColor >> 5) & 0x1F) * scale) / 2.0f);
+	bgra->b = static_cast<unsigned char>((bgra->b + (lightColor & 0x1F) * scale) / 2.0f);
 
-	return bgra;
+	pChunk->isGlowing = true;
 }
 
 /**
@@ -208,29 +204,12 @@ long D3DRenderObjects(
 	D3DCacheSystemReset(objectsRenderParams.cacheSystem);
 
 	// Render opaque objects
-	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 1, false, false);
-	D3DRenderObjectsDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, false, false);
-	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 0, false, false);
+	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 1, false);
+	D3DRenderObjectsDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, false);
+	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 0, false);
 
 	D3DCacheFill(objectsRenderParams.cacheSystem, objectsRenderParams.renderPool, 1);
 	D3DCacheFlush(objectsRenderParams.cacheSystem, objectsRenderParams.renderPool, 1, D3DPT_TRIANGLESTRIP);
-
-	// Objects that emit a steady light are drawn again, adding their light color over the sprite
-	// they just drew. The lighting color multiplies the texture, so in a bright sector it is
-	// already at full scale and has no headroom left to show the light; adding does.
-	D3DRender_SetAlphaBlendState(TRUE, D3DBLEND_ONE, D3DBLEND_ONE);
-	IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_ZWRITEENABLE, FALSE);
-
-	D3DRenderPoolReset(objectsRenderParams.renderPool, &D3DMaterialObjectPool);
-	D3DCacheSystemReset(objectsRenderParams.cacheSystem);
-	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 1, false, true);
-	D3DRenderObjectsDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, false, true);
-	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 0, false, true);
-	D3DCacheFill(objectsRenderParams.cacheSystem, objectsRenderParams.renderPool, 1);
-	D3DCacheFlush(objectsRenderParams.cacheSystem, objectsRenderParams.renderPool, 1, D3DPT_TRIANGLESTRIP);
-
-	IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_ZWRITEENABLE, TRUE);
-	D3DRender_SetAlphaBlendState(FALSE, D3DBLEND_SRCALPHA, D3DBLEND_INVSRCALPHA);
 
 	// Render translucent objects with z-write disabled so they don't occlude objects behind them.
 	IDirect3DDevice9_SetRenderState(gpD3DDevice, D3DRS_ZWRITEENABLE, FALSE);
@@ -314,9 +293,9 @@ long D3DRenderObjects(
 			gameObjectDataParams.visibleObjects,
 			gameObjectDataParams.backBufferTexFull,
 			gameObjectDataParams.backBufferTex);
-		D3DRenderOverlaysDraw(objectsRenderParams, singleObjectParams, playerViewParams, lightAndTextureParams, 1, TRANSLUCENT_FLAGS, false);
-		D3DRenderObjectsDraw(objectsRenderParams, singleObjectParams, playerViewParams, lightAndTextureParams, TRANSLUCENT_FLAGS, false);
-		D3DRenderOverlaysDraw(objectsRenderParams, singleObjectParams, playerViewParams, lightAndTextureParams, 0, TRANSLUCENT_FLAGS, false);
+		D3DRenderOverlaysDraw(objectsRenderParams, singleObjectParams, playerViewParams, lightAndTextureParams, 1, TRANSLUCENT_FLAGS);
+		D3DRenderObjectsDraw(objectsRenderParams, singleObjectParams, playerViewParams, lightAndTextureParams, TRANSLUCENT_FLAGS);
+		D3DRenderOverlaysDraw(objectsRenderParams, singleObjectParams, playerViewParams, lightAndTextureParams, 0, TRANSLUCENT_FLAGS);
 
 		D3DCacheFill(objectsRenderParams.cacheSystem, objectsRenderParams.renderPool, 1);
 		D3DCacheFlush(objectsRenderParams.cacheSystem, objectsRenderParams.renderPool, 1, D3DPT_TRIANGLESTRIP);
@@ -366,9 +345,9 @@ void D3DRenderInvisiblePass(
 	// Render invisible world objects
 	D3DRenderPoolReset(objectsRenderParams.renderPool, &D3DMaterialObjectInvisiblePool);
 	D3DCacheSystemReset(objectsRenderParams.cacheSystem);
-	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 1, OF_INVISIBLE, false);
-	D3DRenderObjectsDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, OF_INVISIBLE, false);
-	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 0, OF_INVISIBLE, false);
+	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 1, OF_INVISIBLE);
+	D3DRenderObjectsDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, OF_INVISIBLE);
+	D3DRenderOverlaysDraw(objectsRenderParams, gameObjectDataParams, playerViewParams, lightAndTextureParams, 0, OF_INVISIBLE);
 	D3DCacheFill(objectsRenderParams.cacheSystem, objectsRenderParams.renderPool, 2);
 	D3DCacheFlush(objectsRenderParams.cacheSystem, objectsRenderParams.renderPool, 2, D3DPT_TRIANGLESTRIP);
 
@@ -709,8 +688,7 @@ void D3DRenderOverlaysDraw(
 	const PlayerViewParams& playerViewParams,
 	const LightAndTextureParams& lightAndTextureParams,
 	bool underlays,
-	int flags,
-	bool glowPass)
+	int flags)
 {
 	D3DMATRIX			mat, rot, trans;
 	int					angleHeading, anglePitch, i, curObject;
@@ -786,9 +764,6 @@ void D3DRenderOverlaysDraw(
 			if (!objTranslucent)
 				continue;
 		}
-
-		if (glowPass && !ObjectEmitsSteadyLight(pRNode))
-			continue;
 
 		if (NULL == *pRNode->obj.overlays)
 			continue;
@@ -1112,20 +1087,18 @@ void D3DRenderOverlaysDraw(
 
 					lastDistance = 0;
 
-					if (glowPass)
-					{
-						bgra = GlowPassColor(pRNode);
-					}
-					else if (GetDrawingEffect(pRNode->obj.flags) == OF_BLACK)
+					if (GetDrawingEffect(pRNode->obj.flags) == OF_BLACK)
 					{
 						bgra.b = bgra.g = bgra.r = 0;
 						bgra.a = 255;
 					}
 					else
 					{
-						if (D3DObjectLightingCalc(objectsRenderParams.room, pRNode, &bgra, 0,
+						if (D3DObjectLightingCalc(objectsRenderParams.room, pRNode, &bgra, 0, 
 							objectsRenderParams.driverProfile.bFogEnable, lightAndTextureParams))
 							pChunk->flags |= D3DRENDER_NOAMBIENT;
+
+						ApplySelfLightGlow(pRNode, &bgra, pChunk);
 					}
 
 					if (GetDrawingEffectIndex(pRNode->obj.flags) == (OF_TRANSLUCENT25 >> 20))
@@ -1172,7 +1145,7 @@ void D3DRenderOverlaysDraw(
 					pChunk->indices[3] = 3;
 
 					// now add object to visible object list
-					if (!glowPass && (pRNode->obj.id != INVALID_ID) && (pRNode->obj.id != player->id))
+					if ((pRNode->obj.id != INVALID_ID) && (pRNode->obj.id != player->id))
 					{
 						D3DMATRIX	localToScreen, rot, mat;
 						custom_xyzw	topLeft, topRight, bottomLeft, bottomRight, center;
@@ -1311,11 +1284,8 @@ void D3DRenderOverlaysDraw(
 						}
 					}
 
-					// The target halo is drawn once, in the object pass; adding it again would
-					// brighten the halo rather than the sprite.
-					if (!glowPass
-						&& pRNode->obj.id != INVALID_ID
-						&& pRNode->obj.id == GetUserTargetID()
+					if (pRNode->obj.id != INVALID_ID 
+						&& pRNode->obj.id == GetUserTargetID() 
 						&& !IsInvisibleEffect(pRNode->obj.flags))
 					{
 						pPacket = D3DRenderPacketFindMatch(objectsRenderParams.renderPool, NULL, pDibOv, xLat0, xLat1,
@@ -1425,8 +1395,7 @@ void D3DRenderObjectsDraw(
 	const GameObjectDataParams& gameObjectDataParams,
 	const PlayerViewParams& playerViewParams,
 	const LightAndTextureParams& lightAndTextureParams,
-	int flags,
-	bool glowPass)
+	int flags)
 {
 	D3DMATRIX			mat, rot, trans;
 	int					angleHeading, anglePitch, i, curObject;
@@ -1531,9 +1500,6 @@ void D3DRenderObjectsDraw(
 			if (objTranslucent)
 				continue;
 		}
-
-		if (glowPass && !ObjectEmitsSteadyLight(pRNode))
-			continue;
 
 		dx = pRNode->motion.x - objectsRenderParams.params->viewer_x;
 		dy = pRNode->motion.y - objectsRenderParams.params->viewer_y;
@@ -1664,20 +1630,18 @@ void D3DRenderObjectsDraw(
 
 		lastDistance = 0;
 
-		if (glowPass)
-		{
-			bgra = GlowPassColor(pRNode);
-		}
-		else if (GetDrawingEffect(pRNode->obj.flags) == OF_BLACK)
+		if (GetDrawingEffect(pRNode->obj.flags) == OF_BLACK)
 		{
 			bgra.b = bgra.g = bgra.r = 0;
 			bgra.a = 255;
 		}
 		else
 		{
-			if (D3DObjectLightingCalc(objectsRenderParams.room, pRNode, &bgra, 0,
+			if (D3DObjectLightingCalc(objectsRenderParams.room, pRNode, &bgra, 0, 
 				objectsRenderParams.driverProfile.bFogEnable, lightAndTextureParams))
 				pChunk->flags |= D3DRENDER_NOAMBIENT;
+
+			ApplySelfLightGlow(pRNode, &bgra, pChunk);
 		}
 
 		if (GetDrawingEffect(pRNode->obj.flags) == OF_TRANSLUCENT25)
@@ -1728,7 +1692,7 @@ void D3DRenderObjectsDraw(
 		pChunk->indices[3] = 3;
 
 		// now add object to visible object list
-		if (!glowPass && (pRNode->obj.id != INVALID_ID) && (pRNode->obj.id != player->id))
+		if ((pRNode->obj.id != INVALID_ID) && (pRNode->obj.id != player->id))
 		{
 			D3DMATRIX	localToScreen, rot, mat;
 			custom_xyzw	topLeft, topRight, bottomLeft, bottomRight, center;
@@ -1859,10 +1823,7 @@ void D3DRenderObjectsDraw(
 			}
 		}
 
-		// The target halo is drawn once, in the object pass; adding it again would
-		// brighten the halo rather than the sprite.
-		if (!glowPass
-			&& pRNode->obj.id != INVALID_ID
+		if (pRNode->obj.id != INVALID_ID 
 			&& pRNode->obj.id == GetUserTargetID()
 			&& !IsInvisibleEffect(pRNode->obj.flags))
 		{
