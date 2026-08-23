@@ -347,7 +347,7 @@ static void ReadINIFile()
     GetPrivateProfileString(strSection, "attackontarget", "false", ReturnedString, nSize, strINIFile);
     m_attackontarget = strcmp(ReturnedString, "true") == 0;
 
-    GetPrivateProfileString(strSection, "gpuefficiency", "false", ReturnedString, nSize, strINIFile);
+    GetPrivateProfileString(strSection, "gpuefficiency", "true", ReturnedString, nSize, strINIFile);
     m_gpuefficiency = strcmp(ReturnedString, "true") == 0;
 
     GetPrivateProfileString(strSection, "antialiasing", "false", ReturnedString, nSize, strINIFile);
