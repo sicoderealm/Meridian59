@@ -114,6 +114,7 @@ static char INITechnical[]    = "Technical";
 static char config_section[] = "config";  /* Section for configuration stuff */
 static char INIGpuEfficiency[] = "gpuefficiency";
 static char INIGpuEfficiencyOneTimeFlip[] = "gpuefficiencyonetimeflip";
+static char INIAntialiasing[] = "antialiasing";
 
 static char INITextAreaSize[] = "TextAreaSize";
 
@@ -317,6 +318,10 @@ void ConfigLoad(void)
    GetPrivateProfileString(config_section, INIGpuEfficiency, "true", config_value, 
 	   sizeof(config_value), config_ini);
    config.gpuEfficiency = (0 == strcmp(config_value, "true"));
+
+   GetPrivateProfileString(config_section, INIAntialiasing, "false", config_value,
+      sizeof(config_value), config_ini);
+   config.multisampleAntialiasing = (0 == strcmp(config_value, "true"));
 
    TimeSettingsLoad();
 }
